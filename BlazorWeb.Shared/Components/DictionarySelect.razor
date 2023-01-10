@@ -2,7 +2,9 @@
 <Select Class=@Class
 		Style=@Style
 		EnableSearch
-		@bind-Value=selected
+		@bind-Value=Value
+		TItemValue="@(string)"
+		TItem="@(Options<string>)"
 		DataSource=@Options.Convert()
 		ValueName=@("Value")
 		LabelName=@("Label")

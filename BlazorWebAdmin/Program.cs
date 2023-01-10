@@ -1,4 +1,5 @@
 using BlazorWebAdmin;
+using LightExcel;
 using MDbContext;
 using Microsoft.AspNetCore.Components.Authorization;
 using Project.AppCore.Auth;
@@ -6,7 +7,12 @@ using Project.AppCore.Store;
 using Project.Common;
 using System.Reflection;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationOptions options = new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+};
+var builder = WebApplication.CreateBuilder(options);
 
 var services = builder.Services;
 // Add services to the container.
@@ -20,15 +26,16 @@ services.UseLightOrm(config =>
     config.SetDatabase(DbBaseType.Sqlite, Project.AppCore.LightDb.CreateConnection)
     .SetWatcher(option =>
     {
-        option.BeforeExecute = sql =>
+        option.BeforeExecute = e =>
         {
 #if DEBUG
-            Console.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} Sql => \n{sql}\n");
+            Console.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} Sql => \n{e.Sql}\n");
 #endif
         };
     });
 });
-services.AddSessionStorageServices();
+services.AddLightExcel();
+//services.AddSessionStorageServices();
 services.AutoInjects();
 //services.AddScoped<StateContainer>();
 //services.AddScoped<RouterStore>();
@@ -37,8 +44,9 @@ services.AutoInjects();
 //services.AddScoped<EventDispatcher>();
 services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 services.AddHttpContextAccessor();
+builder.Host.UseWindowsService();
 var app = builder.Build();
-Config.AddAssembly(typeof(BlazorWeb.UI.Program));
+//Config.AddAssembly(typeof(BlazorWeb.UI.Program));
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

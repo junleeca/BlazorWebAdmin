@@ -7,6 +7,11 @@ namespace LogAopCodeGenerator
         public string AccessLevel { get; set; }// public, private, etc..
         public string TypeName { get; set; }
         public string Name { get; set; }
+        /// <summary>
+        /// 是否传到基类  ctor (p1, p2): base(p1, p2)
+        /// </summary>
+        public bool InBase { get; set; }
+        public bool ProxyClassParameter { get; set; }
     }
     public struct MemberDefinition
     {
@@ -16,31 +21,32 @@ namespace LogAopCodeGenerator
         public bool IsReturnVoid { get; set; }
         public bool IsAsync { get; set; }
         public string ReturnTypeString { get; set; }
+        public bool IsOverride { get; set; }
+        public bool IsVirtual { get; set; }
         public string ReturnString => IsReturnVoid ? "void" : ReturnTypeString;
         public string AsyncKeyToken => IsAsync ? " async " : " ";
         public string AwaitKeyToken => IsAsync ? " await " : " ";
-        public string ReturnValAsign
+        public string OverrideToken => IsOverride ? " override " : "";
+        public string VirtualToken => IsVirtual ? " virtual " : "";
+        public string ReturnValAsign(string contextName)
         {
-            get
+            if (IsReturnVoid)
             {
-                if (IsReturnVoid)
+                return "";
+            }
+            else
+            {
+                if (IsTask)
                 {
-                    return "";
+                    if (IsTaskWithoutValue)
+                        return "";
+                    else
+                        return $"{contextName}.ReturnValue = val;";
+
                 }
                 else
                 {
-                    if (IsTask)
-                    {
-                        if (IsTaskWithoutValue)
-                            return "";
-                        else
-                            return "context.ReturnValue = val;";
-
-                    }
-                    else
-                    {
-                        return "context.ReturnValue = val;";
-                    }
+                    return $"{contextName}.ReturnValue = val;";
                 }
             }
         }

@@ -22,10 +22,29 @@ namespace BlazorWeb.Shared.Template.Forms
             }
         }
 
+        protected virtual Task<bool> OnPostAsync()
+        {
+            return Task.FromResult(true);
+        }
+
         public override async Task OnFeedbackOkAsync(ModalClosingEventArgs args)
         {
-            await (FeedbackRef as IOkCancelRef<TEntity>)!.OkAsync(Value);
-            await base.OnFeedbackOkAsync(args);
+            bool result = true;
+            if (FeedbackRef is ModalRef<TEntity> modalRef)
+            {
+                modalRef.Config.ConfirmLoading = true;
+                await modalRef.UpdateConfigAsync();
+                result = await OnPostAsync();
+                modalRef.Config.ConfirmLoading = false;                
+            }
+            if (result)
+            {
+                await OkCancelRefWithResult.OkAsync(Value);
+            }
+            else
+            {
+                args.Reject();
+            }
         }
     }
 }

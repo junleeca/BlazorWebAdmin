@@ -3,9 +3,9 @@ using AntDesign.Core.Helpers.MemberPath;
 using AntDesign.TableModels;
 using BlazorWeb.Shared.Template.Tables.Setting;
 using BlazorWeb.Shared.Utils;
+using LightExcel;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using MiniExcelLibs;
 using Project.AppCore.Store;
 using Project.Models;
 using Project.Models.Request;
@@ -28,14 +28,28 @@ namespace BlazorWeb.Shared.Template.Tables
         public MessageService MessageSrv { get; set; }
         [Inject]
         public IJSRuntime JSRuntime { get; set; }
+        [Inject]
+        public IExcelHelper Excel { get; set; }
         public bool EnableGenerateQuery => (QueryArea == null || TableOptions.EnabledAdvancedQuery) && !TableOptions.IsDataTableSource;
 
         bool loading;
         private ConditionInfo conditionInfo;
         private Expression<Func<TData, bool>>? ConditionExpression = e => true;
+        Action SetExpression;
+        void AssignExpression()
+        {
+            if (conditionInfo != null)
+                ConditionExpression = BuildCondition.CombineExpression<TData>(conditionInfo);
+            TableOptions.Query.Expression = ConditionExpression;
+        }
+        void IgnoreAssign()
+        {
+            // QueryArea内赋值，不需要内部赋值
+        }
         protected override async Task OnInitializedAsync()
         {
             await base.OnInitializedAsync();
+            SetExpression = QueryArea == null ? AssignExpression : IgnoreAssign;
             TableOptions.RefreshData = RefreshData;
             if (TableOptions.LoadDataOnLoaded)
             {
@@ -47,7 +61,7 @@ namespace BlazorWeb.Shared.Template.Tables
         public async Task Search()
         {
             if (conditionInfo != null)
-                ConditionExpression = BuildCondition.CombineExpression<TData>(conditionInfo);
+                TableOptions.Query.Expression = BuildCondition.CombineExpression<TData>(conditionInfo);
             await DoQuery();
         }
 
@@ -59,7 +73,7 @@ namespace BlazorWeb.Shared.Template.Tables
         private async Task DoQuery()
         {
             loading = true;
-            TableOptions.Query.Expression = ConditionExpression;
+            SetExpression.Invoke();
             var result = await TableOptions.DataLoader(TableOptions.Query);
             TableOptions.Datas = (result.Payload);
             TableOptions.Total = result.TotalRecord;
@@ -77,7 +91,8 @@ namespace BlazorWeb.Shared.Template.Tables
             loading = true;
             if (TableOptions.Page)
             {
-                TableOptions.Query.Expression = ConditionExpression;
+                //TableOptions.Query.Expression = ConditionExpression;
+                SetExpression.Invoke();
                 var result = await TableOptions.ExportDataLoader(TableOptions.Query);
                 TableOptions.Datas = result.Payload;
             }
@@ -88,7 +103,7 @@ namespace BlazorWeb.Shared.Template.Tables
                 if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
                 var path = Path.Combine(folder, $"{RouterStore.Current?.RouteName ?? "Temp"}_{DateTime.Now:yyyyMMdd-HHmmss}.xlsx");
                 var excelData = GeneralExcelData(TableOptions.Columns, data);
-                await MiniExcel.SaveAsAsync(path, excelData);
+                Excel.WriteExcel(path, excelData);
                 _ = MessageSrv.Success("导出成功！请下载文件！");
                 _ = JSRuntime.PushAsync(path);
             }
@@ -199,6 +214,15 @@ namespace BlazorWeb.Shared.Template.Tables
             if (col == null)
             {
                 col = new ColumnDefinition(label, prop);
+            }
+            Columns.Add(col);
+            return this;
+        }
+        public TableOptions<TData, TQuery> AddColumn(ColumnDefinition col)
+        {
+            if (Columns == null)
+            {
+                Columns = new List<ColumnDefinition>();
             }
             Columns.Add(col);
             return this;
